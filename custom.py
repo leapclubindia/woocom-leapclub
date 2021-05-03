@@ -5,7 +5,7 @@ import datetime
 import concurrent.futures
 from customselectlist import list_created_via
 from pytz import timezone
-from modules.universal import format_mobile
+from modules.universal import format_mobile, list_product_list_form_orders
 
 
 def format_delivery_date(d):
@@ -117,14 +117,14 @@ def get_line_items_with_product(order_items, wcapi):
         result = executor.map(get_product, order_items)
     return list(result)
 
-def list_order_items(order_items, refunds, wcapi):
+def list_order_items(order_items, refunds, wcapi, product_list):
     msg = ""
     total_refunds = []
     for r in refunds:
         for ri in r["line_items"]:
             total_refunds.append(ri)
-    order_items = get_line_items_with_product(order_items, wcapi)
     for order_item in order_items:
+        order_item['product'] = product_list[order_item['product_id']]
         for refund in total_refunds:
             if order_item["id"] == int(refund["meta_data"][0]["value"]):
                 order_item["quantity"] = order_item["quantity"] + \
@@ -172,18 +172,14 @@ def list_order_items(order_items, refunds, wcapi):
     return msg
 
 
-def list_order_items_csv(order_items, refunds, wcapi):
+def list_order_items_csv(order_items, refunds, wcapi, product_list):
     msg = ""
     total_refunds = []
     for r in refunds:
         for ri in r["line_items"]:
             total_refunds.append(ri)
-    c_time = time.time()
-    order_items = get_line_items_with_product(order_items, wcapi)
-    print("order items: ",len(order_items))
-    print("TIme to fetch product: ", time.time()-c_time)
-    c_time = time.time()
     for order_item in order_items:
+        order_item['product'] = product_list[str(order_item['product_id'])]
         for refund in total_refunds:
             if order_item["id"] == int(refund["meta_data"][0]["value"]):
                 order_item["quantity"] = order_item["quantity"] + \
@@ -219,7 +215,6 @@ def list_order_items_csv(order_items, refunds, wcapi):
                 + str(order_item["total"])
                 + "\n\n"
             )
-    print("Time for loop: ", time.time()-c_time)
     return msg
 
 
@@ -274,7 +269,7 @@ def get_params(args):
             if 'payment_status' in args and args["status"][0] == "tbd-paid, tbd-unpaid":
                     if args['payment_status'][0] == 'paid':
                         params['status'] = 'tbd-paid'
-                    if args['payment_status'][0] == 'unpaid':
+                    elif args['payment_status'][0] == 'unpaid':
                         params['status'] = 'tbd-unpaid'
                     else:
                         params['status'] = 'tbd-paid, tbd-unpaid'
@@ -328,6 +323,7 @@ def get_shipping_total_for_csv(o):
 
 
 def get_orders_with_messages(orders, wcapi):
+    product_list = list_product_list_form_orders(orders, wcapi)
     def _get_orders_with_messages(o):
         delivery_date = ""
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -349,7 +345,7 @@ def get_orders_with_messages(orders, wcapi):
         if len(o["refunds"]) > 0:
             order_refunds = wcapi.get("orders/"+str(o["id"])+"/refunds").json()
         c_msg = "Here are the order details:\n\n" + "Order ID: " + str(o["id"]) + "\nDelivery Date: " + delivery_date + "\n\n" + \
-            list_order_items(o["line_items"], order_refunds, wcapi) + \
+            list_order_items(o["line_items"], order_refunds, wcapi, product_list) + \
             "*Total Amount: " + \
             get_totals(o["total"], order_refunds) + \
             get_shipping_total(o)+"*\n\n"
@@ -368,7 +364,7 @@ def get_orders_with_messages(orders, wcapi):
                      + "\n\nTotal Amount: " +
                  get_totals(o["total"], order_refunds)
                      + get_shipping_total(o)
-                     + "\n\n"+list_order_items(o["line_items"], order_refunds, wcapi)
+                     + "\n\n"+list_order_items(o["line_items"], order_refunds, wcapi, product_list)
                      + "Payment Status: "+payment_status
                      + "\nCustomer Note: "+o["customer_note"])
         o["c_msg"] = c_msg
@@ -380,6 +376,7 @@ def get_orders_with_messages(orders, wcapi):
 
 
 def get_orders_with_messages_without(orders, wcapi):
+    product_list = list_product_list_form_orders(orders, wcapi)
     def _get_orders_with_messages(o):
         delivery_date = ""
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -398,7 +395,7 @@ def get_orders_with_messages_without(orders, wcapi):
         if len(o["refunds"]) > 0:
             order_refunds = wcapi.get("orders/"+str(o["id"])+"/refunds").json()
         c_msg = "Order ID: " + str(o["id"]) + "\nDelivery Date: " + delivery_date + "\n\n" + \
-            list_order_items(o["line_items"], order_refunds, wcapi) + \
+            list_order_items(o["line_items"], order_refunds, wcapi, product_list) + \
             "*Total Amount: " + \
             get_totals(o["total"], order_refunds) + \
             get_shipping_total(o)+"*\n\n"
@@ -761,6 +758,7 @@ def get_orders_with_customer_detail(orders):
     return orders
 
 def get_orders_with_supplier(orders, wcapi):
+    product_list = list_product_list_form_orders(orders, wcapi)
     for o in orders:
         if len(o["refunds"]) > 0:
             order_refunds = wcapi.get("orders/"+str(o["id"])+"/refunds").json()
@@ -779,7 +777,7 @@ def get_orders_with_supplier(orders, wcapi):
                      + "\n\nTotal Amount: " +
                  get_totals(o["total"], order_refunds)
                      + get_shipping_total(o)
-                     + "\n\n"+list_order_items(o["line_items"], order_refunds, wcapi)
+                     + "\n\n"+list_order_items(o["line_items"], order_refunds, wcapi, product_list)
                      + "Payment Status: "+payment_status
                      + "\nCustomer Note: "+o["customer_note"])
         o["s_msg"] = s_msg

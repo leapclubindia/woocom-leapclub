@@ -1,4 +1,5 @@
 from slack_chennels import CHANNELS
+import concurrent.futures
 
 
 def format_mobile(mobile):
@@ -68,3 +69,41 @@ def get_meta_data(order):
             if delivery_date == "":
                 delivery_date = item["value"]
     return [vendor, manager, delivery_date, order_note]
+
+
+def list_product_with_ids(wcapi, ids):
+    params = {'include': ",".join(ids), 'per_page': 100}
+    def get_product(params):
+        product = wcapi.get("products", params=params)
+        return product
+    page = 1
+    fproduct = wcapi.get("products", params=params)
+    total_pages = int(fproduct.headers["X-WP-TotalPages"])
+    p_list = []
+    p = 2
+    while p < total_pages+1:
+        params["page"] = p
+        p_list.append(params.copy())
+        p += 1
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        result = executor.map(get_product, p_list)
+    products = list(result)
+    products.insert(0, fproduct)
+    o_list = []
+    for p in products:
+        o_list.extend(p.json())
+    return o_list
+
+
+def list_product_list_form_orders(orders, wcapi):
+    products = []
+    p_d = {}
+    for o in orders:
+        for item in o['line_items']:
+            item['product_id'] = str(item['product_id'])
+            if item['product_id'] not in products:
+                products.append(item['product_id'])
+    products = list_product_with_ids(wcapi, products)
+    for p in products:
+        p_d[str(p['id'])] = p
+    return p_d

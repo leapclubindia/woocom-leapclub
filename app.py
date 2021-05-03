@@ -22,7 +22,7 @@ from slack import WebClient
 from slack_bot import send_slack_message_, send_slack_message_calcelled, send_slack_for_product, send_slack_for_vendor_wise, send_every_day_at_9, vendor_wise_tbd_tomorrow, send_slack_message_dairy, send_slack_message_calcelled_dairy
 from flask_crontab import Crontab
 from slack_chennels import CHANNELS
-from modules.universal import format_mobile, send_slack_message, get_meta_data
+from modules.universal import format_mobile, send_slack_message, get_meta_data, list_product_list_form_orders
 
 
 
@@ -241,7 +241,7 @@ def get_orders_for_home(args, tab):
             orders.extend(list_orders_with_status(wcapi, params.copy()))
             tabs_nums['dairy'] = len(orders)
         else:
-            orders = wcapi.get("orders", params=params)
+            orders = wcapi.get("order2", params=params)
             tabs_nums[params['status']] = orders.headers['X-WP-Total']
             orders = orders.json()
     else:
@@ -423,23 +423,26 @@ def download_csv():
         filename = str(datetime.utcnow())+"-" + "Product-Sheet.csv"
     # Google Sheets................
     elif data["action"][0] == 'google_sheet':
+        m_time = time.time()
+        c_time = time.time()
+        product_list = list_product_list_form_orders(orders, wcapi)
+        print("Time to fetch products: ",time.time()-c_time)
+        c_time = time.time()
         for o in orders:
             refunds = []
-            c_time = time.time()
             if len(o["refunds"]) > 0:
                 refunds = wcapi.get("orders/"+str(o["id"])+"/refunds").json()
-            print("TIme to fetch refunds: ", time.time()-c_time)
-            c_time = time.time()
             o['line_items_text'] = list_order_items_csv(
-                o["line_items"], refunds, wcapi).replace("&amp;", "&")
-            print("time to get line items: ", time.time()-c_time)
+                o["line_items"], refunds, wcapi, product_list).replace("&amp;", "&")
             o['total_text'] = get_totals(
                 o["total"], refunds)+get_shipping_total_for_csv(o)
+        print("Time to fetch line_items and refunds: ", time.time()-c_time)
         c_time = time.time()
         response = requests.post(
             app.config["GOOGLE_SHEET_URL"]+"?action=order_sheet", json=orders)
         print("Time to send to google sheet: ",time.time()- c_time)
         sheet_url = app.config["SHEET_URL"]+response.json()['ssUrl']
+        print("Total Time: ", time.time()-m_time)
     elif data['action'][0] == 'product_google_sheet':
         o = orders[0]
         vendor, manager, delivery_date, order_note,  = get_meta_data(o)
@@ -911,37 +914,6 @@ def vendor_wise_tbd():
     return {"Result": "Success No Error..."}
 
 
-@app.route("/google_sheet", methods=['GET', 'POST'])
-def google_sheet():
-    if not g.user:
-        return redirect(url_for('login'))
-    if request.method == "POST":
-        data = request.form.to_dict(flat=False)
-        if data['action'][0] == "order_sheet":
-            params = get_params(data)
-            params['per_page'] = 100
-            orders = list_orders_with_status(wcapi, params)
-            for o in orders:
-                refunds = []
-                if len(o["refunds"]) > 0:
-                    refunds = wcapi.get(
-                        "orders/"+str(o["id"])+"/refunds").json()
-                o['line_items_text'] = list_order_items_csv(
-                    o["line_items"], refunds, wcapi).replace("&amp;", "&")
-                o['total_text'] = get_totals(
-                    o["total"], refunds)+get_shipping_total_for_csv(o)
-            response = requests.post(
-                app.config["GOOGLE_SHEET_URL"]+"?action=order_sheet", json=orders)
-        elif data['action'][0] == "product_sheet":
-            params = get_params(data)
-            params['per_page'] = 100
-            orders = list_orders_with_status(wcapi, params)
-            response = requests.post(app.config["GOOGLE_SHEET_URL"]+"?action=product_sheet", json={"products": get_csv_from_products(
-                orders, wcapi, 'google-sheet'), "sheet_name": data['vendor'][0]+"_"+params['delivery_date']})
-        return redirect(url_for('google_sheet'))
-    else:
-        return render_template("google_sheet/index.html", user=g.user, vendors=list_vendor)
-
 # @crontab.job(minute="30", hour="15")
 
 
@@ -1004,8 +976,12 @@ def order_details():
     data['order_ids'] = data['order_ids[]']
     params = get_params(data)
     params["include"] = get_list_to_string(data["order_ids"])
+    c_time = time.time()
     orders = wcapi.get("orders", params=params).json()
+    print("Time to fetch orders: ", time.time()-c_time)
+    c_time = time.time()
     orders = get_orders_with_messages_without(orders, wcapi)
+    print("Time to message: ", time.time()-c_time)
     main_text = ""
     total = 0
     for o in orders:
@@ -1466,6 +1442,7 @@ def change_order_status():
 @app.route("/get_copy_messages/<string:id>")
 def get_copy_messages(id):
     o = wcapi.get("orders/"+id[6:]).json()
+    product_list = list_product_list_form_orders([o], wcapi)
     order_refunds = []
     if len(o["refunds"]) > 0:
         order_refunds = wcapi.get("orders/"+str(o["id"])+"/refunds").json()
@@ -1482,7 +1459,7 @@ def get_copy_messages(id):
             except Exception as e:
                 delivery_date=""
         msg = "Here are the order details:\n\n" + "Order ID: " + str(o["id"]) + "\nDelivery Date: " + delivery_date + "\n\n" + \
-            list_order_items(o["line_items"], order_refunds, wcapi) + \
+            list_order_items(o["line_items"], order_refunds, wcapi, product_list) + \
             "*Total Amount: " + \
             get_totals(o["total"], order_refunds) + \
             get_shipping_total(o)+"*\n\n"
@@ -1502,7 +1479,7 @@ def get_copy_messages(id):
                      + "\n\nTotal Amount: " +
                  get_totals(o["total"], order_refunds)
                      + get_shipping_total(o)
-                     + "\n\n"+list_order_items(o["line_items"], order_refunds, wcapi)
+                     + "\n\n"+list_order_items(o["line_items"], order_refunds, wcapi, product_list)
                      + "Payment Status: "+payment_status
                      + "\nCustomer Note: "+o["customer_note"])
     return {'status': 'success', 'text': msg.strip()}
@@ -1648,7 +1625,6 @@ def copy_linked_orders():
 @app.route("/send_payment_link_wt/<string:id>", methods=['POST'])
 def send_payment_link_wt(id):
     args = request.form.to_dict(flat=True)
-    print(args)
     mobile_number = args['mobile_number']
     payment_link = PaymentLinks.query.filter(PaymentLinks.receipt.like("%"+id+"%")).all()[-1]
     headers = {

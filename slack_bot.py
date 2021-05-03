@@ -1,7 +1,7 @@
 from custom import get_totals, list_order_items, list_orders_with_status, list_orders_with_status_N2
 from datetime import datetime, timedelta
 from slack_chennels import CHANNELS
-from modules.universal import format_mobile, send_slack_message, send_slack_message_thread
+from modules.universal import format_mobile, send_slack_message, send_slack_message_thread, list_product_list_form_orders
 
 
 def get_total_from_params(wcapi, params):
@@ -67,8 +67,9 @@ def send_slack_message_(client, wcapi, o):
         + " | Total Unpaid Amount: " + str(total_unpaid)
         + taguser
     )
+    product_list = list_product_list_form_orders([o], wcapi)
     th_s_msg = "*Order Items*\n" + \
-        list_order_items(o["line_items"], order_refunds, wcapi)
+        list_order_items(o["line_items"], order_refunds, wcapi, product_list)
     response = send_slack_message_thread(client, 'ORDER_NOTIFICATIONS', s_msg, th_s_msg)
     return response
 
@@ -128,8 +129,9 @@ def send_slack_message_dairy(client, wcapi, o):
         + " | Total Unpaid Amount: " + str(total_unpaid)
         + taguser
     )
+    product_list = list_product_list_form_orders([o], wcapi)
     th_s_msg = "*Order Items*\n" + \
-        list_order_items(o["line_items"], order_refunds, wcapi)
+        list_order_items(o["line_items"], order_refunds, wcapi, product_list)
     response = send_slack_message_thread(client, 'DAIRY_NOTIFICATIONS', s_msg, th_s_msg)
     return response
 
@@ -171,8 +173,9 @@ def send_slack_message_calcelled(client, wcapi, o):
         + " | Delivery Charge: "+o["shipping_total"]
 
     )
+    product_list = list_product_list_form_orders([o], wcapi)
     th_s_msg = "*Order Items*\n" + \
-        list_order_items(o["line_items"], order_refunds, wcapi)
+        list_order_items(o["line_items"], order_refunds, wcapi, product_list)
     response = send_slack_message_thread(client, 'ORDER_NOTIFICATIONS', s_msg, th_s_msg)
     return response
 
@@ -218,8 +221,9 @@ def send_slack_message_calcelled_dairy(client, wcapi, o):
         payment_status
 
     )
+    product_list = list_product_list_form_orders([o], wcapi)
     th_s_msg = "*Order Items*\n" + \
-        list_order_items(o["line_items"], order_refunds, wcapi)
+        list_order_items(o["line_items"], order_refunds, wcapi, product_list)
     response = send_slack_message_thread(client, 'DAIRY_NOTIFICATIONS', s_msg, th_s_msg)
     return response
 
