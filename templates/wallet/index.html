@@ -1,0 +1,100 @@
+{% extends "layout.html" %} {% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand font-weight-bold" href="#">
+      Wallet
+    </a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+      aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item">
+            <a class="nav-link" href="{{url_for('woocom_orders')}}">
+                Orders
+            </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('vendor_orders')}}">
+            Vendor-Orders</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('subscriptions')}}">
+            Subscriptions</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('products')}}">
+            Products</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('logout')}}">
+            <i class="mdi mdi-logout" aria-hidden="true"></i>
+            Logout</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="mt-3 ml-5 mr-5 d-flex justify-content-between">
+  <div><h4>Customers</h4></div>
+  <div class="ml-auto">
+  <form  autocomplete="off" class="form-inline" role="form">
+    <!-- Default Search -->
+    <input style="display: none;" name="page" value="{{page}}">
+
+    <input class="form-control mr-2" type="name" placeholder="Customer IDs" {% if "include" in query %} {% if query["include"] !="" %} value="{{query["include"]}}" {% endif %} {% endif %} name="include">
+    <input class="form-control mr-2" type="name" placeholder="Name" {% if "name" in query %} {% if query["name"] !=""%} value="{{query["name"]}}" {% endif %} {% endif %} name="name">
+    <button class="btn btn-info ml-1"><i class="uil uil-search-alt" aria-hidden="true"></i>
+    </button>
+  </form>
+  </div>
+</div>
+
+<div class="ml-5 mr-5 pt-3">
+    <table class="table">
+        <thread>
+            <tr class="bg-info text-white">
+                <th></th>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Current Balance</th>
+            </tr>
+        </thread>
+        <tbody>
+            {%for c in customers%}
+            <tr>
+                <td>
+                    <button data-toggle="tooltip" title="Add Money To Wallet" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-cash-plus mr-1"></i></button>
+                    <button data-toggle="tooltip" title="Reduce Money From Wallet" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-cash-minus mr-1"></i></button>
+                    <button data-toggle="tooltip" title="Generate Payment Link" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-link-plus mr-1"></i></button>
+                </td>
+                <td>{{c.first_name}} {{c.last_name}}</td>
+                <td>{{format_mobile(c.billing.phone)}}</td>
+                <td>₹ {{c.wallet_balance}}</td>
+            </tr>
+            {%endfor%}
+        </tbody>
+    </table>
+</div>
+
+<br /><br />
+<nav aria-label="Page navigation">
+  <ul class="pagination justify-content-center">
+    <li class="page-item {% if page == 1%} disabled {%endif%}">
+      <a class="page-link" href="{{url_for('wallet', page=page-1, include=query['include'], name=query['name'])}}" tabindex="-1"
+        >Previous</a
+      >
+    </li>
+    <li class="page-item">
+      <a class="page-link">{{page}}</a>
+    </li>
+    <li class="page-item {% if customers | length < 25%} disabled {%endif%}">
+      <a class="page-link" href="{{url_for('wallet', page=page+1, include=query['include'], name=query['name'])}}">Next</a>
+    </li>
+  </ul>
+</nav>
+<script>
+  
+</script>
+{%endblock%}

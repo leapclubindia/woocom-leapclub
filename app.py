@@ -22,7 +22,7 @@ from slack import WebClient
 from slack_bot import send_slack_message_, send_slack_message_calcelled, send_slack_for_product, send_slack_for_vendor_wise, send_every_day_at_9, vendor_wise_tbd_tomorrow, send_slack_message_dairy, send_slack_message_calcelled_dairy
 from flask_crontab import Crontab
 from slack_chennels import CHANNELS
-from modules.universal import format_mobile, send_slack_message, get_meta_data, list_product_list_form_orders
+from modules.universal import format_mobile, send_slack_message, get_meta_data, list_product_list_form_orders, list_customers_with_wallet_balance
 
 
 
@@ -1670,6 +1670,23 @@ def send_payment_link_wt(id):
     result = json.loads(response.text.encode('utf8'))
     result["template_name"] = template_name
     return result
+
+@app.route("/wallet")
+def wallet():
+    m_time = time.time()
+    args = request.args.to_dict(flat=True)
+    page = 1 if 'page' not in args else int(args['page'])
+    include = '' if 'include' not in args else args['include']
+    search = '' if 'name' not in args else args['name']
+    c_time = time.time()
+    customers = wcapi.get("customers", params={'page': page, 'per_page': 25, 'orderby': "id", 'role': 'all', 'include': include, 'search': search}).json()
+    print("Time to fetch customers: ", time.time()-c_time)
+    c_time = time.time()
+    # customers = list_customers_with_wallet_balance(customers, wcapiw)
+    print("Time to fetch wallet balance: ", time.time()-c_time)
+    print("Total time: ", time.time()-m_time)
+    return render_template('wallet/index.html', page=page, customers=customers, format_mobile = format_mobile, query=args)
+
 
 if __name__ == "__main__":
     db.create_all()

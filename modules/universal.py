@@ -107,3 +107,13 @@ def list_product_list_form_orders(orders, wcapi):
     for p in products:
         p_d[str(p['id'])] = p
     return p_d
+
+
+def list_customers_with_wallet_balance(customers, wcapiw):
+    def _get_customer_with_wallet_balance(c):
+        balance = wcapiw.get("current_balance/"+str(c['id']))
+        c["wallet_balance"] = float(balance.text[1:-1])
+        return c
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        result = executor.map(_get_customer_with_wallet_balance, customers)
+    return list(result)
