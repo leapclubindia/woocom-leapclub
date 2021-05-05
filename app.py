@@ -1682,11 +1682,22 @@ def wallet():
     customers = wcapi.get("customers", params={'page': page, 'per_page': 25, 'orderby': "id", 'role': 'all', 'include': include, 'search': search}).json()
     print("Time to fetch customers: ", time.time()-c_time)
     c_time = time.time()
-    # customers = list_customers_with_wallet_balance(customers, wcapiw)
+    customers = list_customers_with_wallet_balance(customers, wcapiw)
     print("Time to fetch wallet balance: ", time.time()-c_time)
     print("Total time: ", time.time()-m_time)
     return render_template('wallet/index.html', page=page, customers=customers, format_mobile = format_mobile, query=args)
 
+
+@app.route("/wallet", methods=['POST'])
+def handelWallet():
+    data = request.form.to_dict(flat=True)
+    customer = wcapi.get("customers/"+data['id']).json()
+    if 'code' not in customer:
+        response = wcapiw.post("wallet/"+str(customer['id']), data={'type': data['action'], 'amount': float(data['amount']), 'details': data['details']}).json()
+        if response['response'] == 'success' and response['id'] != False: 
+            return {'result': 'success'}
+        
+    return {"result": 'error'}
 
 if __name__ == "__main__":
     db.create_all()
