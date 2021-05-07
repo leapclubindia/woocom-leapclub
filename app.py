@@ -1695,9 +1695,67 @@ def handelWallet():
     if 'code' not in customer:
         response = wcapiw.post("wallet/"+str(customer['id']), data={'type': data['action'], 'amount': float(data['amount']), 'details': data['details']}).json()
         if response['response'] == 'success' and response['id'] != False: 
-            return {'result': 'success'}
-        
+            balance = wcapiw.get("current_balance/"+str(customer["id"])).text[1:-1]
+            return {'result': 'success', 'balance': balance}
     return {"result": 'error'}
+
+@app.route("/wallet/genlink", methods=['POST'])
+def genPaymentLinkWallet():
+    data = request.form.to_dict(flat=True)
+    customer = wcapi.get("customers/"+data['id']).json()
+    payment_links = PaymentLinks.query.filter(PaymentLinks.receipt.like("%Wallet-"+str(customer['id'])+"%")).all()
+    if len(payment_links)==0:
+        reciept = "Wallet-" + str(customer['id'])
+    else:
+        reciept = "Wallet-" + str(customer['id'])+"-"+str(len(payment_links)+1)
+    data = {
+            "amount": float(data['amount'])*100,
+            "receipt": reciept,
+            "customer": {
+                "name": customer["first_name"] + " " + customer["last_name"],
+                "contact": format_mobile(customer['billing']['phone'])
+            },
+            "type": "link",
+            "view_less": 1,
+            "currency": "INR",
+            "description": "Thank you for making a healthy and sustainable choice",
+            "reminder_enable": False,
+            "callback_url": "https://leapclub.in/",
+            "callback_method": "get",
+            "sms_notify": False,
+            'email_notify': False
+        }
+    try:
+        invoice = razorpay_client.invoice.create(data=data)
+        status = "success"
+        short_url = invoice['short_url']
+        new_payment_link = PaymentLinks(order_id=1111, receipt=data["receipt"], payment_link_url=invoice['short_url'], contact=format_mobile(customer["billing"]["phone"]), name=data["customer"]['name'], created_at=invoice["created_at"], amount=data['amount'], status=status)
+        db.session.add(new_payment_link)
+        db.session.commit()
+        return {'result': 'success', 'link': short_url}
+    except Exception as e:
+        print(e)
+        return {'result': 'error'}
+
+@app.route("/payByWallet", methods=['POST'])
+def payByWallet():
+    data = request.form.to_dict(flat=False)
+    orders = wcapi.get("orders", params={'include': ", ".join(data['ids[]']), 'per_page': 50}).json()
+    results = []
+    for o in orders:
+        name = o['billing']['first_name']+" "+o['billing']['last_name']
+        mobile = format_mobile(o['billing']['phone'])
+        if o['payment_method'] == 'wallet':
+            response = wcapiw.post("wallet/"+str(o['customer_id']), data={'type': 'debit', 'amount': float(o['total']), 'details': 'Pay by wallet for order #'+str(o['id'])}).json()
+            if response['response'] == 'success' and response['id'] != False: 
+                balance = wcapiw.get("current_balance/"+str(o["customer_id"])).text[1:-1]
+                results.append({'result': 'success', 'balance': balance, 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': o['total']})
+            else:
+                results.append({'result': 'failed', 'balance': '', 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': o['total']})
+        else:
+            results.append({'result': 'N/A', 'balance': '', 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': o['total']})
+    return {"result": 'success', 'results': results}
+
 
 if __name__ == "__main__":
     db.create_all()

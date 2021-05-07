@@ -244,6 +244,10 @@
       <button onclick="changeOrderStatus('delivered')" type="button"
         class="btn btn-info ml-2">Mark as Delivered</button>
     {%endif%}
+    {%if nav_active in ['delivered-unpaid']%}
+      <button onclick="payByWallet()" type="button"
+        class="btn btn-info ml-2">Pay By Wallet</button>
+    {%endif%}
   </form>
   {%if nav_active == 'any'%}
   <div class='ml-auto mt-1'>
@@ -252,6 +256,83 @@
   {%endif%}
 </div>
 </div>
+<script>
+  function payByWallet(){
+    var inp_select = $('#select_inps')
+    var inp_select_v = inp_select.val()
+    Swal.fire({
+        title: 'Processing Your Request....',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        },
+    })
+    $.ajax({
+      type: "POST",
+      crossDomain: true,
+      dataType: "json",
+      url: "/payByWallet",
+      data: { 'ids': inp_select_v },
+      success: function (res) {
+        var new_tr = ""
+        for (var o of res.results){
+          btn = `<button class='btn btn-sm btn-success'>Button</button>`
+          if (o['result'] != 'success'){
+            btn = ''
+          }
+          new_tr += `
+          <tr>
+            <td><p>`+ o.order_id + `</p></td>
+            <td><p>`+ o.name+" ("+o.mobile + `)</p></td>
+            <td><p>`+ o.result + `</p></td>
+            <td><p>`+ o.amount + `</p></td>
+            <td><p>`+ o.balance + `</p></td>
+            <td>`+btn+`</td>
+          </tr>`
+        }
+        if (res.result == 'success') {
+          Swal.fire({
+            icon: "success",
+            html: 
+            `
+            <table class='table'>
+            <thead>
+            <tr>
+              <th><b>Order ID</b></th>  
+              <th><b>Name (Number)</b></th>  
+              <th><b>Result</b></th>  
+              <th><b>Amount</b></th>  
+              <th><b>Wallet Balance</b></th>  
+              <th></th>  
+            </tr>  
+            </thead>
+            <tbody>
+            `+ new_tr + `
+            </tbody>
+          </table>
+            `,
+          width: 1000,
+          backdrop: `
+          rgba(0,0,123,0.4)`
+          })
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Got Error Please Recheck Orders!"
+          })
+        }
+      },
+      error: function () {
+        Swal.fire({
+          icon: "error",
+          title: "Got Error Please Recheck Orders!"
+        })
+      }
+    })
+
+  }
+</script>
 <div style="overflow-x: auto;" class="ml-1 mr-1 pt-3">
   <table class="table">
     <thead>

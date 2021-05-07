@@ -67,11 +67,11 @@
                 <td>
                     <button onclick="MoneyToWallet('{{c.id}}', 'credit')" data-toggle="tooltip" title="Add Money To Wallet" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-cash-plus mr-1"></i></button>
                     <button onclick="MoneyToWallet('{{c.id}}', 'debit')" data-toggle="tooltip" title="Reduce Money From Wallet" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-cash-minus mr-1"></i></button>
-                    <button onclick="" data-toggle="tooltip" title="Generate Payment Link" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-link-plus mr-1"></i></button>
+                    <button onclick="genPaymentLinkWallet('{{c.id}}')" data-toggle="tooltip" title="Generate Payment Link" class="btn btn-success btn-sm font-weight-bold"><i class="mdi mdi-18px mdi-link-plus mr-1"></i></button>
                 </td>
                 <td>{{c.first_name}} {{c.last_name}}</td>
                 <td>{{format_mobile(c.billing.phone)}}</td>
-                <td>₹ {{c.wallet_balance}}</td>
+                <td id="balance-{{c.id}}">₹ {{c.wallet_balance}}</td>
             </tr>
             {%endfor%}
         </tbody>
@@ -94,47 +94,4 @@
     </li>
   </ul>
 </nav>
-<script>
-  function MoneyToWallet(id, action){
-    Swal.mixin({
-      input: 'text',
-      confirmButtonText: 'Next &rarr;',
-      showCancelButton: true,
-      progressSteps: ['1', '2']
-    }).queue([
-      'Enter Amount: ',
-      'Enter Details: '
-    ]).then((result) => {
-      if (result.value) {
-        console.log(result.value, id, action);
-        $.ajax({
-          type: "POST",
-          crossDomain: true,
-          dataType: "json",
-          url: "/wallet",
-          data: { 'id': id, 'amount': result.value[0], 'action': action, 'details': result.value[1] },
-          success: function (res) {
-            if (res.result == 'success') {
-              Swal.fire({
-                icon: "success",
-                title: result.value[0]+" Amount "+result.value[1].toUpperCase()+" Successfuly!"
-              })
-            }else{
-              Swal.fire({
-                icon: "error",
-                title: "Got Error From Wallet Please Check Amount and details!"
-              })
-            }
-          },
-          error: function (){
-            Swal.fire({
-                icon: "error",
-                title: "Got Error From Wallet Please Check Amount and details!"
-              })
-          }
-        })
-      }
-    })
-  }
-</script>
 {%endblock%}

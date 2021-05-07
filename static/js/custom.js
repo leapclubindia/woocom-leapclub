@@ -423,6 +423,7 @@ function copySupplierMessage(status) {
   });
 }
 
+
 function genMultipleLinks() {
   var inp_select = $('#select_inps')
   var inp_select_v = inp_select.val()
