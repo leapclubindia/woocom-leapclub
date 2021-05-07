@@ -1743,17 +1743,24 @@ def payByWallet():
     orders = wcapi.get("orders", params={'include': ", ".join(data['ids[]']), 'per_page': 50}).json()
     results = []
     for o in orders:
+        total_amount = 0
+        wallet_payment = 0
+        if len(o["fee_lines"]) > 0:
+            for item in o["fee_lines"]:
+                if "wallet" in item["name"].lower():
+                    wallet_payment = (-1)*float(item["total"])
+        total_amount += (float(get_total_from_line_items(o["line_items"]))+float(o["shipping_total"])-wallet_payment-float(get_total_from_line_items(o["refunds"])*-1))
         name = o['billing']['first_name']+" "+o['billing']['last_name']
         mobile = format_mobile(o['billing']['phone'])
         if o['payment_method'] == 'wallet':
-            response = wcapiw.post("wallet/"+str(o['customer_id']), data={'type': 'debit', 'amount': float(o['total']), 'details': 'Pay by wallet for order #'+str(o['id'])}).json()
+            response = wcapiw.post("wallet/"+str(o['customer_id']), data={'type': 'debit', 'amount': total_amount, 'details': 'Pay by wallet for order #'+str(o['id'])}).json()
             if response['response'] == 'success' and response['id'] != False: 
                 balance = wcapiw.get("current_balance/"+str(o["customer_id"])).text[1:-1]
-                results.append({'result': 'success', 'balance': balance, 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': o['total']})
+                results.append({'result': 'success', 'balance': balance, 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': total_amount})
             else:
-                results.append({'result': 'failed', 'balance': '', 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': o['total']})
+                results.append({'result': 'failed', 'balance': '', 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': total_amount})
         else:
-            results.append({'result': 'N/A', 'balance': '', 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': o['total']})
+            results.append({'result': 'N/A', 'balance': '', 'order_id': o['id'], 'name': name, 'mobile': mobile, 'amount': total_amount})
     return {"result": 'success', 'results': results}
 
 

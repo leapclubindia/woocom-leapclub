@@ -2,3 +2,4 @@
 /venv
 /.vscode
 /instance
+/modules/__pycache__
